@@ -68,18 +68,24 @@ impl<'template> TemplateCompiler<'template> {
             } else if self.remaining_text.starts_with("{{") {
                 self.trim_next = false;
 
-                let (discriminant, rest) = self.consume_block()?;
+                let (discriminant, mut rest) = self.consume_block()?;
                 match discriminant {
                     "if" => {
-                        let (path, negated) = if rest.starts_with("not") {
-                            (self.parse_path(&rest[4..])?, true)
-                        } else {
-                            (self.parse_path(rest)?, false)
-                        };
+                        let mut negated = false;
+                        if rest.starts_with("not") {
+                            rest = &rest[4..];
+                            negated = true;
+                        }
+                        let mut equal = None;
+                        if let Some(operator) = rest.find("==") {
+                            equal = Some(rest[operator + 2..].trim());
+                            rest = &rest[..operator];
+                        }
+                        let path = self.parse_path(rest)?;
                         self.block_stack
                             .push((discriminant, Block::Branch(self.instructions.len())));
                         self.instructions
-                            .push(Instruction::Branch(path, !negated, UNKNOWN));
+                            .push(Instruction::Branch(path, equal, !negated, UNKNOWN));
                     }
                     "else" => {
                         self.expect_empty(rest)?;
@@ -230,7 +236,7 @@ impl<'template> TemplateCompiler<'template> {
         let branch_block = self.block_stack.pop();
         if let Some((_, Block::Branch(index))) = branch_block {
             match &mut self.instructions[index] {
-                Instruction::Branch(_, _, target) => {
+                Instruction::Branch(_, _, _, target) => {
                     *target = new_target;
                     Ok(())
                 }

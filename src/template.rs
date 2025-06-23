@@ -211,7 +211,7 @@ impl<'template> Template<'template> {
                     }
                     program_counter += 1;
                 }
-                Instruction::Branch(path, negate, target) => {
+                Instruction::Branch(path, expected, negate, target) => {
                     let first = path.first().unwrap();
                     let mut truthy = if first.starts_with('@') {
                         let first: &str = &*first;
@@ -222,12 +222,16 @@ impl<'template> Template<'template> {
                                 let (index, length) = render_context.lookup_index()?;
                                 index == (length - 1)
                             }
-                            "@root" => self.value_is_truthy(render_context.lookup_root()?, path)?,
+                            "@root" => self.value_is_truthy(
+                                render_context.lookup_root()?,
+                                path,
+                                *expected,
+                            )?,
                             other => panic!("Unknown keyword {}", other), // This should have been caught by the parser.
                         }
                     } else {
                         let value_to_render = render_context.lookup(path)?;
-                        self.value_is_truthy(value_to_render, path)?
+                        self.value_is_truthy(value_to_render, path, *expected)?
                     };
                     if *negate {
                         truthy = !truthy;
@@ -325,19 +329,45 @@ impl<'template> Template<'template> {
         Ok(())
     }
 
-    fn value_is_truthy(&self, value: &Value, path: PathSlice) -> Result<bool> {
+    fn value_is_truthy(
+        &self,
+        value: &Value,
+        path: PathSlice,
+        expected: Option<&'template str>,
+    ) -> Result<bool> {
         let truthy = match value {
             Value::Null => false,
-            Value::Bool(b) => *b,
-            Value::Number(n) => match n.as_f64() {
-                Some(float) => float != 0.0,
-                None => {
-                    return Err(truthiness_error(self.original_text, path));
+            Value::Bool(b) => {
+                assert_eq!(expected, None);
+                *b
+            }
+            Value::Number(n) => {
+                if let Some(expected) = expected {
+                    expected == &n.to_string()
+                } else {
+                    match n.as_f64() {
+                        Some(float) => float != 0.0,
+                        None => {
+                            return Err(truthiness_error(self.original_text, path));
+                        }
+                    }
                 }
-            },
-            Value::String(s) => !s.is_empty(),
-            Value::Array(arr) => !arr.is_empty(),
-            Value::Object(_) => true,
+            }
+            Value::String(s) => {
+                if let Some(expected) = expected {
+                    expected == s
+                } else {
+                    !s.is_empty()
+                }
+            }
+            Value::Array(arr) => {
+                assert_eq!(expected, None);
+                !arr.is_empty()
+            }
+            Value::Object(_) => {
+                assert_eq!(expected, None);
+                true
+            }
         };
         Ok(truthy)
     }

@@ -47,7 +47,7 @@ pub(crate) enum Instruction<'template> {
 
     /// Look up the value at the given path and jump to the given instruction index if that value
     /// is truthy (if the boolean is true) or falsy (if the boolean is false)
-    Branch(Path<'template>, bool, usize),
+    Branch(Path<'template>, Option< &'template str>, bool, usize),
 
     /// Push a named context on the stack, shadowing only that name.
     PushNamedContext(Path<'template>, &'template str),
