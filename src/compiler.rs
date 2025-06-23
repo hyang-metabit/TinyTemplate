@@ -52,11 +52,11 @@ impl<'template> TemplateCompiler<'template> {
     pub fn compile(mut self) -> Result<Vec<Instruction<'template>>> {
         while !self.remaining_text.is_empty() {
             // Comment, denoted by {# comment text #}
-            if self.remaining_text.starts_with("{#") {
+            if self.remaining_text.starts_with("${#") {
                 self.trim_next = false;
 
                 let tag = self.consume_tag("#}")?;
-                let comment = tag[2..(tag.len() - 2)].trim();
+                let comment = tag[3..(tag.len() - 2)].trim();
                 if comment.starts_with('-') {
                     self.trim_last_whitespace();
                 }
@@ -146,7 +146,7 @@ impl<'template> TemplateCompiler<'template> {
             // Values, of the form { dotted.path.to.value.in.context }
             // Note that it is not (currently) possible to escape curly braces in the templates to
             // prevent them from being interpreted as values.
-            } else if self.remaining_text.starts_with('{') {
+            } else if self.remaining_text.starts_with("${") {
                 self.trim_next = false;
 
                 let (path, name) = self.consume_value()?;
@@ -280,16 +280,16 @@ impl<'template> TemplateCompiler<'template> {
     /// a { at the start of the text.
     fn consume_text(&mut self, escaped: bool) -> &'template str {
         let search_substr = if escaped {
-            &self.remaining_text[1..]
+            &self.remaining_text[2..]
         } else {
             self.remaining_text
         };
 
         let mut position = search_substr
-            .find('{')
+            .find("${")
             .unwrap_or_else(|| search_substr.len());
         if escaped {
-            position += 1;
+            position += 2;
         }
 
         let (text, remaining) = self.remaining_text.split_at(position);
@@ -301,7 +301,7 @@ impl<'template> TemplateCompiler<'template> {
     /// formatter name.
     fn consume_value(&mut self) -> Result<(Path<'template>, Option<&'template str>)> {
         let tag = self.consume_tag("}")?;
-        let mut tag = tag[1..(tag.len() - 1)].trim();
+        let mut tag = tag[2..(tag.len() - 1)].trim();
         if tag.starts_with('-') {
             tag = tag[1..].trim();
             self.trim_last_whitespace();
