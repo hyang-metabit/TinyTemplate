@@ -302,7 +302,10 @@ impl<'template> Template<'template> {
                     };
                 }
                 Instruction::Call(template_name, path) => {
-                    let context_value = render_context.lookup(path)?;
+                    let context_value = match path[0] {
+                        PathStep::Name("@root") => render_context.lookup_root()?,
+                        _ => render_context.lookup(path)?,
+                    };
                     match template_registry.get(template_name) {
                         Some(templ) => {
                             let called_templ_result = templ.render_into(

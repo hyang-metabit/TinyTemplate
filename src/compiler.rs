@@ -65,7 +65,7 @@ impl<'template> TemplateCompiler<'template> {
                 }
             // Block tag. Block tags are wrapped in {{ }} and always have one word at the start
             // to identify which kind of tag it is. Depending on the tag type there may be more.
-            } else if self.remaining_text.starts_with("{{") {
+            } else if self.remaining_text.starts_with("${{") {
                 self.trim_next = false;
 
                 let (discriminant, mut rest) = self.consume_block()?;
@@ -79,7 +79,7 @@ impl<'template> TemplateCompiler<'template> {
                         let mut equal = None;
                         if let Some(operator) = rest.find("==") {
                             equal = Some(rest[operator + 2..].trim());
-                            rest = &rest[..operator];
+                            rest = &rest[..operator].trim();
                         }
                         let path = self.parse_path(rest)?;
                         self.block_stack
@@ -337,7 +337,7 @@ impl<'template> TemplateCompiler<'template> {
     /// and the rest of the text in the tag. Also handles trimming whitespace where needed.
     fn consume_block(&mut self) -> Result<(&'template str, &'template str)> {
         let tag = self.consume_tag("}}")?;
-        let mut block = tag[2..(tag.len() - 2)].trim();
+        let mut block = tag[3..(tag.len() - 2)].trim();
         if block.starts_with('-') {
             block = block[1..].trim();
             self.trim_last_whitespace();
